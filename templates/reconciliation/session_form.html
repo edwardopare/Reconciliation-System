@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block nav_sessions %}active{% endblock %}
+{% block breadcrumb %}Sessions / {{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">Define the period and bank account for this reconciliation exercise</div>
+  </div>
+  <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline">← Back</a>
+</div>
+
+<div style="max-width:640px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Session Details</span>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Session Name <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="session_name" class="form-control" placeholder="e.g. January 2024 Reconciliation"
+                 value="{{ form.session_name.value|default:'' }}" required>
+          {% if form.session_name.errors %}<div class="form-error">{{ form.session_name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Bank Account <span style="color:var(--danger)">*</span></label>
+          <select name="bank_account" class="form-control" required>
+            <option value="">— Select bank account —</option>
+            {% for acc in form.bank_account.field.queryset %}
+              <option value="{{ acc.pk }}" {% if form.bank_account.value|stringformat:'s' == acc.pk|stringformat:'s' %}selected{% endif %}>
+                {{ acc.bank_name }} — {{ acc.account_name }} ({{ acc.account_number }})
+              </option>
+            {% endfor %}
+          </select>
+          {% if form.bank_account.errors %}<div class="form-error">{{ form.bank_account.errors }}</div>{% endif %}
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Period Start <span style="color:var(--danger)">*</span></label>
+            <input type="date" name="period_start" class="form-control"
+                   value="{{ form.period_start.value|default:'' }}" required>
+            {% if form.period_start.errors %}<div class="form-error">{{ form.period_start.errors }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Period End <span style="color:var(--danger)">*</span></label>
+            <input type="date" name="period_end" class="form-control"
+                   value="{{ form.period_end.value|default:'' }}" required>
+            {% if form.period_end.errors %}<div class="form-error">{{ form.period_end.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit" class="btn btn-primary">Create Session</button>
+          <a href="{% url 'reconciliation:session_list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% block title %}{{ session.session_id }}{% endblock %}
+{% block nav_sessions %}active{% endblock %}
+{% block breadcrumb %}Sessions / {{ session.session_id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+      <div class="page-title">{{ session.session_name }}</div>
+      <span class="badge
+        {% if session.status == 'approved' %}badge-approved
+        {% elif session.status == 'rejected' %}badge-rejected
+        {% elif session.status == 'pending_review' %}badge-pending
+        {% elif session.status == 'processing' %}badge-processing
+        {% elif session.status == 'closed' %}badge-closed
+        {% else %}badge-draft{% endif %}" style="font-size:0.75rem">
+        {{ session.get_status_display }}
+      </span>
+    </div>
+    <div class="page-subtitle">
+      <span class="mono">{{ session.session_id }}</span> &nbsp;·&nbsp;
+      {{ session.bank_account.bank_name }} ({{ session.bank_account.account_number }}) &nbsp;·&nbsp;
+      {{ session.period_start|date:"d M Y" }} – {{ session.period_end|date:"d M Y" }}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    {% if not user.is_read_only and session.status == 'draft' %}
+      <form method="post" action="{% url 'reconciliation:run_matching' session.pk %}" style="display:inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-primary">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Run Reconciliation
+        </button>
+      </form>
+    {% endif %}
+    {% if user.can_approve and session.status == 'pending_review' %}
+      <a href="{% url 'reconciliation:approve_session' session.pk %}" class="btn btn-success">Review & Approve</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Stats Row -->
+<div class="stat-grid" style="margin-bottom:20px">
+  <div class="stat-card peach">
+    <div class="stat-icon peach">📊</div>
+    <div class="stat-label">Total Transactions</div>
+    <div class="stat-value">{{ total }}</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon success">✓</div>
+    <div class="stat-label">Matched</div>
+    <div class="stat-value">{{ matched }}</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon warning">?</div>
+    <div class="stat-label">Unmatched</div>
+    <div class="stat-value">{{ unmatched }}</div>
+  </div>
+  <div class="stat-card {% if match_rate >= 80 %}success{% else %}danger{% endif %}">
+    <div class="stat-icon {% if match_rate >= 80 %}success{% else %}danger{% endif %}">%</div>
+    <div class="stat-label">Match Rate</div>
+    <div class="stat-value">{{ match_rate }}%</div>
+  </div>
+</div>
+
+<div class="two-col" style="align-items:start">
+  <!-- Left: Tabs for Transactions + Exceptions -->
+  <div style="grid-column:span 2" class="tab-container">
+    <div class="card">
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="transactions">Transactions ({{ total }})</button>
+        <button class="tab-btn" data-tab="exceptions">Exceptions ({{ ex_count }})</button>
+        <button class="tab-btn" data-tab="upload">Upload Files</button>
+        <button class="tab-btn" data-tab="info">Session Info</button>
+      </div>
+
+      <!-- Transactions -->
+      <div class="tab-content active" data-tab-content="transactions">
+        {% if transactions %}
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Narration</th>
+                <th>Debit</th>
+                <th>Credit</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for txn in transactions %}
+              <tr>
+                <td class="mono" style="font-size:0.78rem">{{ txn.transaction_date|date:"d M Y" }}</td>
+                <td>
+                  <span class="mono" style="font-size:0.78rem">{{ txn.reference_number|default:"—" }}</span>
+                </td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.8rem;color:var(--slate-500)">
+                  {{ txn.narration|truncatechars:40|default:"—" }}
+                </td>
+                <td style="font-size:0.8rem;color:var(--danger)">
+                  {% if txn.debit_amount > 0 %}{{ txn.currency }} {{ txn.debit_amount|floatformat:2 }}{% else %}—{% endif %}
+                </td>
+                <td style="font-size:0.8rem;color:var(--success)">
+                  {% if txn.credit_amount > 0 %}{{ txn.currency }} {{ txn.credit_amount|floatformat:2 }}{% else %}—{% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-peach">{{ txn.get_source_display }}</span>
+                </td>
+                <td>
+                  <span class="badge
+                    {% if txn.status == 'matched' or txn.status == 'manually_matched' %}badge-matched
+                    {% elif txn.status == 'exception' %}badge-exception
+                    {% else %}badge-unmatched{% endif %}">
+                    {{ txn.get_status_display }}
+                  </span>
+                </td>
+                <td style="font-size:0.78rem;color:var(--slate-400)">
+                  {% if txn.match_confidence > 0 %}{{ txn.match_confidence }}%{% else %}—{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if total > 50 %}
+        <div style="padding:12px 20px;font-size:0.78rem;color:var(--slate-400);border-top:1px solid var(--slate-100)">
+          Showing first 50 of {{ total }} transactions.
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">📂</div>
+          <div class="empty-title">No transactions yet</div>
+          <div class="empty-sub">Upload files and run reconciliation to see transactions.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Exceptions -->
+      <div class="tab-content" data-tab-content="exceptions">
+        {% if exceptions %}
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Transaction Ref</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for exc in exceptions %}
+              <tr>
+                <td>
+                  <span class="badge badge-exception">{{ exc.get_category_display }}</span>
+                </td>
+                <td class="mono" style="font-size:0.78rem">{{ exc.transaction.reference_number|default:"—" }}</td>
+                <td style="font-size:0.8rem;font-weight:500">
+                  {{ exc.transaction.currency }} {{ exc.transaction.amount|floatformat:2 }}
+                </td>
+                <td>
+                  <span class="badge
+                    {% if exc.status == 'resolved' %}badge-approved
+                    {% elif exc.status == 'escalated' %}badge-rejected
+                    {% elif exc.status == 'investigating' %}badge-pending
+                    {% else %}badge-draft{% endif %}">
+                    {{ exc.get_status_display }}
+                  </span>
+                </td>
+                <td style="font-size:0.75rem;color:var(--slate-400)">{{ exc.created_at|date:"d M Y" }}</td>
+                <td>
+                  <a href="{% url 'reconciliation:exception_detail' exc.pk %}" class="btn btn-ghost btn-sm">Manage</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-icon">✓</div>
+          <div class="empty-title">No exceptions</div>
+          <div class="empty-sub">All transactions have been matched successfully.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Upload -->
+      <div class="tab-content" data-tab-content="upload">
+        <div class="card-body">
+          {% if not user.is_read_only and session.status == 'draft' %}
+          <form method="post" action="{% url 'reconciliation:upload_file' session.pk %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">File Category</label>
+                <select name="category" class="form-control">
+                  <option value="bank_statement">Bank Statement</option>
+                  <option value="internal_ledger">Internal Ledger</option>
+                  <option value="payment_gateway">Payment Gateway File</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">File</label>
+                <input type="file" name="file" class="form-control" accept=".csv,.xlsx,.xls,.txt">
+              </div>
+            </div>
+            <div class="upload-zone" style="margin-bottom:16px">
+              <div class="upload-icon">📤</div>
+              <div class="upload-text">Drag & drop your file here, or click Browse</div>
+              <div class="upload-hint">Supported: CSV, Excel, TXT, MT940, JSON, XML</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload File</button>
+          </form>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <div class="empty-title">Uploads disabled</div>
+            <div class="empty-sub">Files can only be uploaded when the session is in Draft status.</div>
+          </div>
+          {% endif %}
+
+          {% if files %}
+          <div class="mt-6">
+            <div style="font-size:0.82rem;font-weight:600;color:var(--slate-600);margin-bottom:12px">Uploaded Files</div>
+            <table class="data-table">
+              <thead><tr><th>Filename</th><th>Category</th><th>Status</th><th>Rows</th><th>Uploaded</th></tr></thead>
+              <tbody>
+                {% for f in files %}
+                <tr>
+                  <td style="font-size:0.8rem">{{ f.original_filename }}</td>
+                  <td><span class="badge badge-peach">{{ f.get_category_display }}</span></td>
+                  <td>
+                    <span class="badge {% if f.status == 'processed' %}badge-approved{% elif f.status == 'failed' %}badge-rejected{% else %}badge-pending{% endif %}">
+                      {{ f.get_status_display }}
+                    </span>
+                  </td>
+                  <td style="font-size:0.8rem">{{ f.rows_extracted }}</td>
+                  <td style="font-size:0.75rem;color:var(--slate-400)">{{ f.uploaded_at|date:"d M Y H:i" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Session Info -->
+      <div class="tab-content" data-tab-content="info">
+        <div class="card-body">
+          <div class="form-grid">
+            <div>
+              <div class="form-label">Session ID</div>
+              <div class="mono" style="font-size:0.88rem">{{ session.session_id }}</div>
+            </div>
+            <div>
+              <div class="form-label">Status</div>
+              <span class="badge badge-{% if session.status == 'approved' %}approved{% else %}pending{% endif %}">{{ session.get_status_display }}</span>
+            </div>
+            <div>
+              <div class="form-label">Bank Account</div>
+              <div style="font-size:0.85rem">{{ session.bank_account }}</div>
+            </div>
+            <div>
+              <div class="form-label">Currency</div>
+              <div style="font-size:0.85rem">{{ session.bank_account.currency }}</div>
+            </div>
+            <div>
+              <div class="form-label">Period</div>
+              <div style="font-size:0.85rem">{{ session.period_start|date:"d M Y" }} – {{ session.period_end|date:"d M Y" }}</div>
+            </div>
+            <div>
+              <div class="form-label">Created By</div>
+              <div style="font-size:0.85rem">{{ session.created_by.get_full_name|default:session.created_by.username }}</div>
+            </div>
+            <div>
+              <div class="form-label">Created At</div>
+              <div style="font-size:0.85rem">{{ session.created_at|date:"d M Y, H:i" }}</div>
+            </div>
+            {% if session.approved_by %}
+            <div>
+              <div class="form-label">Approved By</div>
+              <div style="font-size:0.85rem">{{ session.approved_by.get_full_name }}</div>
+            </div>
+            <div>
+              <div class="form-label">Approval Date</div>
+              <div style="font-size:0.85rem">{{ session.approval_date|date:"d M Y, H:i" }}</div>
+            </div>
+            {% endif %}
+            {% if session.approval_comments %}
+            <div style="grid-column:span 2">
+              <div class="form-label">Approval Comments</div>
+              <div style="font-size:0.85rem;padding:10px;background:var(--slate-50);border-radius:6px">{{ session.approval_comments }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Activate first tab by default (already handled in base)
+document.querySelector('.tab-btn[data-tab="transactions"]')?.click();
+</script>
+{% endblock %}

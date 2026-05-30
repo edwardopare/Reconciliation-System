@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block nav_banks %}active{% endblock %}
+{% block breadcrumb %}Bank Accounts / {{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ title }}</div>
+  </div>
+  <a href="{% url 'reconciliation:bank_account_list' %}" class="btn btn-outline">← Back</a>
+</div>
+
+<div style="max-width:580px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Account Details</span></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-grid">
+          <div class="form-group col-span-2">
+            <label class="form-label">Account Name *</label>
+            <input type="text" name="account_name" class="form-control" placeholder="e.g. Main Operating Account"
+                   value="{{ form.account_name.value|default:'' }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Number *</label>
+            <input type="text" name="account_number" class="form-control" placeholder="e.g. 1234567890"
+                   value="{{ form.account_number.value|default:'' }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bank Name *</label>
+            <input type="text" name="bank_name" class="form-control" placeholder="e.g. GCB Bank"
+                   value="{{ form.bank_name.value|default:'' }}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select name="currency" class="form-control">
+              <option value="GHS" {% if form.currency.value == 'GHS' %}selected{% endif %}>GHS — Ghana Cedis</option>
+              <option value="USD" {% if form.currency.value == 'USD' %}selected{% endif %}>USD — US Dollar</option>
+              <option value="EUR" {% if form.currency.value == 'EUR' %}selected{% endif %}>EUR — Euro</option>
+              <option value="GBP" {% if form.currency.value == 'GBP' %}selected{% endif %}>GBP — British Pound</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Branch</label>
+            <input type="text" name="branch" class="form-control" placeholder="e.g. Head Office"
+                   value="{{ form.branch.value|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-control">
+              <option value="active" {% if form.status.value == 'active' %}selected{% endif %}>Active</option>
+              <option value="inactive" {% if form.status.value == 'inactive' %}selected{% endif %}>Inactive</option>
+              <option value="frozen" {% if form.status.value == 'frozen' %}selected{% endif %}>Frozen</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit" class="btn btn-primary">Save Account</button>
+          <a href="{% url 'reconciliation:bank_account_list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log{% endblock %}
+{% block nav_audit %}active{% endblock %}
+{% block breadcrumb %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Audit Trail</div>
+    <div class="page-subtitle">Immutable log of all system actions — read-only</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <form method="get" class="filter-bar" style="flex:1">
+      <div class="search-input-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input type="text" name="q" class="search-input" placeholder="Search actions, entities…" value="{{ search }}">
+      </div>
+      <button type="submit" class="btn btn-outline">Search</button>
+      {% if search %}<a href="{% url 'reconciliation:audit_log' %}" class="btn btn-ghost">Clear</a>{% endif %}
+    </form>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>Entity ID</th>
+          <th>New Value</th>
+          <th>IP Address</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in page_obj %}
+        <tr>
+          <td class="mono" style="font-size:0.75rem;color:var(--slate-400);white-space:nowrap">
+            {{ log.timestamp|date:"d M Y" }}<br>{{ log.timestamp|date:"H:i:s" }}
+          </td>
+          <td>
+            <div style="font-size:0.82rem;font-weight:500">{{ log.user.username|default:"System" }}</div>
+            <div style="font-size:0.72rem;color:var(--slate-400)">{{ log.user.get_role_display|default:"—" }}</div>
+          </td>
+          <td>
+            <span class="badge
+              {% if 'LOGIN' in log.action %}badge-approved
+              {% elif 'LOGOUT' in log.action %}badge-draft
+              {% elif 'APPROVE' in log.action %}badge-approved
+              {% elif 'REJECT' in log.action %}badge-rejected
+              {% elif 'CREATE' in log.action %}badge-peach
+              {% elif 'UPLOAD' in log.action %}badge-processing
+              {% else %}badge-draft{% endif %}">
+              {{ log.action }}
+            </span>
+          </td>
+          <td style="font-size:0.8rem;color:var(--slate-600)">{{ log.entity }}</td>
+          <td class="mono" style="font-size:0.78rem;color:var(--slate-400)">{{ log.entity_id|default:"—" }}</td>
+          <td style="font-size:0.78rem;color:var(--slate-500);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {{ log.new_value|truncatechars:60|default:"—" }}
+          </td>
+          <td class="mono" style="font-size:0.75rem;color:var(--slate-400)">{{ log.ip_address|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">No audit records found</div>
+    <div class="empty-sub">{% if search %}Try a different search term.{% else %}System actions will appear here once recorded.{% endif %}</div>
+  </div>
+  {% endif %}
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&q={{ search }}" class="page-link">‹</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <span class="page-link active">{{ num }}</span>
+      {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+        <a href="?page={{ num }}&q={{ search }}" class="page-link">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&q={{ search }}" class="page-link">›</a>
+    {% endif %}
+    <span class="page-info">{{ page_obj.paginator.count }} records</span>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

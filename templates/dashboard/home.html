@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block breadcrumb %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Welcome back, {{ user.first_name|default:user.username }}</div>
+    <div class="page-subtitle">Here's what's happening in your reconciliation workspace.</div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stat-grid">
+  <div class="stat-card peach">
+    <div class="stat-icon peach">📋</div>
+    <div class="stat-label">Total Sessions</div>
+    <div class="stat-value">{{ total_sessions }}</div>
+    <div class="stat-meta">All time</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon warning">⏳</div>
+    <div class="stat-label">Pending Approval</div>
+    <div class="stat-value">{{ pending_approvals }}</div>
+    <div class="stat-meta">Awaiting review</div>
+  </div>
+  <div class="stat-card danger">
+    <div class="stat-icon danger">⚠️</div>
+    <div class="stat-label">Open Exceptions</div>
+    <div class="stat-value">{{ open_exceptions }}</div>
+    <div class="stat-meta">Require attention</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon success">✓</div>
+    <div class="stat-label">Match Rate</div>
+    <div class="stat-value">{{ match_rate }}%</div>
+    <div class="stat-meta">Overall accuracy</div>
+  </div>
+</div>
+
+<!-- Main Grid -->
+<div class="two-col" style="align-items:start">
+  <!-- Recent Sessions -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Recent Sessions</span>
+      <a href="{% url 'reconciliation:session_list' %}" class="btn btn-ghost btn-sm">View all</a>
+    </div>
+    {% if recent_sessions %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Session</th>
+            <th>Bank Account</th>
+            <th>Status</th>
+            <th>Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sess in recent_sessions %}
+          <tr>
+            <td>
+              <a href="{% url 'reconciliation:session_detail' sess.pk %}" style="font-weight:500;color:var(--slate-800)">
+                {{ sess.session_id }}
+              </a>
+              <div style="font-size:0.73rem;color:var(--slate-400)">{{ sess.period_start|date:"d M" }} – {{ sess.period_end|date:"d M Y" }}</div>
+            </td>
+            <td style="font-size:0.8rem">{{ sess.bank_account.bank_name }}</td>
+            <td>
+              <span class="badge badge-{{ sess.status|lower|slugify }}">{{ sess.get_status_display }}</span>
+            </td>
+            <td>
+              <div style="font-size:0.8rem;font-weight:600;color:var(--slate-700)">{{ sess.match_rate }}%</div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">No sessions yet</div>
+      <div class="empty-sub">Create your first reconciliation session to get started.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right column -->
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <!-- Open Exceptions -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Open Exceptions</span>
+        <a href="{% url 'reconciliation:exception_list' %}" class="btn btn-ghost btn-sm">View all</a>
+      </div>
+      {% if recent_exceptions %}
+      <div class="card-body-sm" style="padding:0">
+        {% for exc in recent_exceptions %}
+        <a href="{% url 'reconciliation:exception_detail' exc.pk %}" style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--slate-100);text-decoration:none">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--danger);flex-shrink:0;margin-top:2px"></div>
+          <div style="flex:1">
+            <div style="font-size:0.82rem;font-weight:500;color:var(--slate-700)">{{ exc.get_category_display }}</div>
+            <div style="font-size:0.73rem;color:var(--slate-400)">{{ exc.transaction.reference_number|default:"No ref" }} · {{ exc.session.session_id }}</div>
+          </div>
+          <span class="badge badge-{{ exc.status }}">{{ exc.get_status_display }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:28px">
+        <div class="empty-icon">✓</div>
+        <div class="empty-title">No open exceptions</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Monthly Trend -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Monthly Sessions</span>
+      </div>
+      <div class="card-body">
+        {% for item in trend_data %}
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:60px;font-size:0.75rem;color:var(--slate-500);flex-shrink:0">{{ item.month }}</div>
+          <div class="progress-bar-wrap" style="flex:1">
+            <div class="progress-bar {% if item.count > 0 %}success{% endif %}"
+                 style="width:{% if item.count == 0 %}2{% else %}{{ item.count|floatformat:0 }}0{% endif %}%;max-width:100%">
+            </div>
+          </div>
+          <div style="width:20px;text-align:right;font-size:0.78rem;font-weight:600;color:var(--slate-700)">{{ item.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

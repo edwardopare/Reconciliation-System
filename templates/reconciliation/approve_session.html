@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Review Session{% endblock %}
+{% block nav_sessions %}active{% endblock %}
+{% block breadcrumb %}Sessions / {{ session.session_id }} / Review{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Review &amp; Approve Session</div>
+    <div class="page-subtitle">{{ session.session_id }} — {{ session.session_name }}</div>
+  </div>
+  <a href="{% url 'reconciliation:session_detail' session.pk %}" class="btn btn-outline">← Back</a>
+</div>
+
+<div class="two-col" style="align-items:start">
+  <!-- Summary -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <div class="card-header"><span class="card-title">Session Summary</span></div>
+      <div class="card-body">
+        <div class="form-grid">
+          <div><div class="form-label">Session ID</div><div class="mono">{{ session.session_id }}</div></div>
+          <div><div class="form-label">Status</div>
+            <span class="badge badge-pending">{{ session.get_status_display }}</span>
+          </div>
+          <div><div class="form-label">Bank Account</div><div style="font-size:0.85rem">{{ session.bank_account.bank_name }}</div></div>
+          <div><div class="form-label">Account Number</div><div class="mono" style="font-size:0.82rem">{{ session.bank_account.account_number }}</div></div>
+          <div><div class="form-label">Period</div><div style="font-size:0.85rem">{{ session.period_start|date:"d M Y" }} – {{ session.period_end|date:"d M Y" }}</div></div>
+          <div><div class="form-label">Created By</div><div style="font-size:0.85rem">{{ session.created_by.get_full_name|default:session.created_by.username }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Reconciliation Statistics</span></div>
+      <div class="card-body">
+        {% with total=session.transactions.count %}
+        {% with matched=session.transactions.filter %}
+        <div style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span style="font-size:0.82rem;color:var(--slate-500)">Match Rate</span>
+            <span style="font-size:0.85rem;font-weight:700;color:var(--slate-800)">{{ session.match_rate }}%</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar {% if session.match_rate >= 80 %}success{% endif %}" style="width:{{ session.match_rate }}%"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--slate-50);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4rem;font-weight:700;color:var(--slate-800)">{{ session.transactions.count }}</div>
+            <div style="font-size:0.72rem;color:var(--slate-400);text-transform:uppercase;letter-spacing:0.05em">Total Txns</div>
+          </div>
+          <div style="background:var(--success-bg);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4rem;font-weight:700;color:var(--success)">{{ session.match_rate }}%</div>
+            <div style="font-size:0.72rem;color:var(--success);text-transform:uppercase;letter-spacing:0.05em">Matched</div>
+          </div>
+          <div style="background:var(--warning-bg);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4rem;font-weight:700;color:var(--warning)">{{ session.exceptions.filter.count|default:session.exceptions.count }}</div>
+            <div style="font-size:0.72rem;color:var(--warning);text-transform:uppercase;letter-spacing:0.05em">Exceptions</div>
+          </div>
+          <div style="background:var(--danger-bg);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:1.4rem;font-weight:700;color:var(--danger)">{{ session.exceptions.filter.count|default:"0" }}</div>
+            <div style="font-size:0.72rem;color:var(--danger);text-transform:uppercase;letter-spacing:0.05em">Open Issues</div>
+          </div>
+        </div>
+        {% endwith %}
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Approval Form -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Approval Decision</span></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Decision <span style="color:var(--danger)">*</span></label>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+            <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--slate-200);border-radius:8px;cursor:pointer;transition:all 0.15s" 
+                   onmouseover="this.style.borderColor='var(--success)';this.style.background='var(--success-bg)'" 
+                   onmouseout="this.style.borderColor='var(--slate-200)';this.style.background='white'">
+              <input type="radio" name="action" value="approve" required style="accent-color:var(--success)">
+              <div>
+                <div style="font-size:0.85rem;font-weight:500;color:var(--slate-700)">✓ Approve</div>
+                <div style="font-size:0.73rem;color:var(--slate-400)">Mark session as approved and closed</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--slate-200);border-radius:8px;cursor:pointer;transition:all 0.15s"
+                   onmouseover="this.style.borderColor='var(--warning)';this.style.background='var(--warning-bg)'"
+                   onmouseout="this.style.borderColor='var(--slate-200)';this.style.background='white'">
+              <input type="radio" name="action" value="rework" style="accent-color:var(--warning)">
+              <div>
+                <div style="font-size:0.85rem;font-weight:500;color:var(--slate-700)">↩ Request Rework</div>
+                <div style="font-size:0.73rem;color:var(--slate-400)">Return to officer for corrections</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--slate-200);border-radius:8px;cursor:pointer;transition:all 0.15s"
+                   onmouseover="this.style.borderColor='var(--danger)';this.style.background='var(--danger-bg)'"
+                   onmouseout="this.style.borderColor='var(--slate-200)';this.style.background='white'">
+              <input type="radio" name="action" value="reject" style="accent-color:var(--danger)">
+              <div>
+                <div style="font-size:0.85rem;font-weight:500;color:var(--slate-700)">✕ Reject</div>
+                <div style="font-size:0.73rem;color:var(--slate-400)">Reject this reconciliation session</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comments</label>
+          <textarea name="comments" class="form-control" rows="4" 
+                    placeholder="Add notes about your decision (optional)…"></textarea>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button type="submit" class="btn btn-primary">Submit Decision</button>
+          <a href="{% url 'reconciliation:session_detail' session.pk %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

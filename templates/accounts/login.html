@@ -1,0 +1,48 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — BRMS</title>
+  <link rel="stylesheet" href="{% static 'css/brms.css' %}">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">🏦</div>
+      <div class="auth-title">BRMS</div>
+      <div class="auth-subtitle">Bank Reconciliation Management System</div>
+    </div>
+    <div class="auth-body">
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-{{ msg.tags|default:'info' }}" style="margin-bottom:16px">{{ msg }}</div>
+        {% endfor %}
+      {% endif %}
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" placeholder="Enter your username" autofocus
+                 value="{{ form.username.value|default:'' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" name="password" class="form-control" placeholder="Enter your password">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;padding:10px">
+          Sign In
+        </button>
+      </form>
+      <p style="text-align:center;margin-top:20px;font-size:0.75rem;color:var(--slate-400)">
+        BRMS v1.0 &nbsp;·&nbsp; Secure Access Only
+      </p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Exceptions{% endblock %}
+{% block nav_exceptions %}active{% endblock %}
+{% block breadcrumb %}Exceptions{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Exception Management</div>
+    <div class="page-subtitle">Review and resolve unmatched or problematic transactions</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <form method="get" class="filter-bar" style="flex:1">
+      <select name="category" class="form-control" style="width:200px">
+        <option value="">All Categories</option>
+        {% for val, label in categories %}
+          <option value="{{ val }}" {% if category == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="status" class="form-control" style="width:150px">
+        <option value="">All Statuses</option>
+        {% for val, label in statuses %}
+          <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline">Filter</button>
+      {% if category or status %}
+        <a href="{% url 'reconciliation:exception_list' %}" class="btn btn-ghost">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Session</th>
+          <th>Reference</th>
+          <th>Amount</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Assigned To</th>
+          <th>Date</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for exc in page_obj %}
+        <tr>
+          <td><span class="badge badge-exception">{{ exc.get_category_display }}</span></td>
+          <td>
+            <a href="{% url 'reconciliation:session_detail' exc.session.pk %}" class="mono" style="font-size:0.78rem;color:var(--peach-600)">
+              {{ exc.session.session_id }}
+            </a>
+          </td>
+          <td class="mono" style="font-size:0.78rem">{{ exc.transaction.reference_number|default:"—" }}</td>
+          <td style="font-size:0.82rem;font-weight:500">
+            {{ exc.transaction.currency }} {{ exc.transaction.amount|floatformat:2 }}
+          </td>
+          <td><span class="badge badge-peach">{{ exc.transaction.get_source_display }}</span></td>
+          <td>
+            <span class="badge
+              {% if exc.status == 'resolved' %}badge-approved
+              {% elif exc.status == 'escalated' %}badge-rejected
+              {% elif exc.status == 'investigating' %}badge-pending
+              {% else %}badge-draft{% endif %}">
+              {{ exc.get_status_display }}
+            </span>
+          </td>
+          <td style="font-size:0.78rem;color:var(--slate-500)">
+            {{ exc.assigned_to.get_full_name|default:"—" }}
+          </td>
+          <td style="font-size:0.75rem;color:var(--slate-400)">{{ exc.created_at|date:"d M Y" }}</td>
+          <td>
+            <a href="{% url 'reconciliation:exception_detail' exc.pk %}" class="btn btn-ghost btn-sm">Manage</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">✓</div>
+    <div class="empty-title">No exceptions found</div>
+    <div class="empty-sub">{% if category or status %}Try adjusting your filters.{% else %}Great! No exceptions are currently open.{% endif %}</div>
+  </div>
+  {% endif %}
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}&category={{ category }}&status={{ status }}" class="page-link">‹</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <span class="page-link active">{{ num }}</span>
+      {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+        <a href="?page={{ num }}&category={{ category }}&status={{ status }}" class="page-link">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}&category={{ category }}&status={{ status }}" class="page-link">›</a>
+    {% endif %}
+    <span class="page-info">{{ page_obj.paginator.count }} exceptions</span>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

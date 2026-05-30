@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block breadcrumb %}Users / {{ title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">{% if edit_user %}Edit details for {{ edit_user.username }}{% else %}Add a new system user{% endif %}</div>
+  </div>
+  <a href="{% url 'accounts:user_list' %}" class="btn btn-outline">← Back</a>
+</div>
+
+<div style="max-width:640px">
+  <div class="card">
+    <div class="card-header"><span class="card-title">User Details</span></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-error">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input type="text" name="first_name" class="form-control" placeholder="First name"
+                   value="{{ form.first_name.value|default:'' }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="last_name" class="form-control" placeholder="Last name"
+                   value="{{ form.last_name.value|default:'' }}">
+          </div>
+        </div>
+
+        {% if not edit_user %}
+        <div class="form-group">
+          <label class="form-label">Username <span style="color:var(--danger)">*</span></label>
+          <input type="text" name="username" class="form-control" placeholder="Unique username"
+                 value="{{ form.username.value|default:'' }}" required>
+          {% if form.username.errors %}<div class="form-error">{{ form.username.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="email@example.com"
+                 value="{{ form.email.value|default:'' }}">
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Role <span style="color:var(--danger)">*</span></label>
+            <select name="role" class="form-control">
+              <option value="admin"      {% if form.role.value == 'admin' %}selected{% endif %}>System Administrator</option>
+              <option value="officer"    {% if form.role.value == 'officer' or not form.role.value %}selected{% endif %}>Reconciliation Officer</option>
+              <option value="manager"    {% if form.role.value == 'manager' %}selected{% endif %}>Finance Manager</option>
+              <option value="auditor"    {% if form.role.value == 'auditor' %}selected{% endif %}>Internal Auditor</option>
+              <option value="executive"  {% if form.role.value == 'executive' %}selected{% endif %}>Executive User</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Department</label>
+            <input type="text" name="department" class="form-control" placeholder="e.g. Finance"
+                   value="{{ form.department.value|default:'' }}">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control" placeholder="+233 XX XXX XXXX"
+                 value="{{ form.phone.value|default:'' }}">
+        </div>
+
+        {% if not edit_user %}
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Password <span style="color:var(--danger)">*</span></label>
+            <input type="password" name="password" class="form-control" placeholder="Min. 12 characters" required>
+            {% if form.password.errors %}<div class="form-error">{{ form.password.errors }}</div>{% endif %}
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm Password <span style="color:var(--danger)">*</span></label>
+            <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required>
+          </div>
+        </div>
+        {% else %}
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Account Active</label>
+            <select name="is_active" class="form-control">
+              <option value="True" {% if form.is_active.value %}selected{% endif %}>Yes</option>
+              <option value="False" {% if not form.is_active.value %}selected{% endif %}>No</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Account Locked</label>
+            <select name="is_locked" class="form-control">
+              <option value="False" {% if not form.is_locked.value %}selected{% endif %}>No</option>
+              <option value="True" {% if form.is_locked.value %}selected{% endif %}>Yes</option>
+            </select>
+          </div>
+        </div>
+        {% endif %}
+
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit" class="btn btn-primary">
+            {% if edit_user %}Save Changes{% else %}Create User{% endif %}
+          </button>
+          <a href="{% url 'accounts:user_list' %}" class="btn btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

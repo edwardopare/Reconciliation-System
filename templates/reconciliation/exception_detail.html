@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}Exception #{{ exc.pk }}{% endblock %}
+{% block nav_exceptions %}active{% endblock %}
+{% block breadcrumb %}Exceptions / #{{ exc.pk }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Exception Detail</div>
+    <div class="page-subtitle">{{ exc.get_category_display }} — {{ exc.session.session_id }}</div>
+  </div>
+  <a href="{% url 'reconciliation:exception_list' %}" class="btn btn-outline">← Back</a>
+</div>
+
+<div class="two-col" style="align-items:start">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Transaction Details</span></div>
+    <div class="card-body">
+      <div class="form-grid">
+        <div><div class="form-label">Reference</div><div class="mono">{{ exc.transaction.reference_number|default:"—" }}</div></div>
+        <div><div class="form-label">Date</div><div>{{ exc.transaction.transaction_date|date:"d M Y" }}</div></div>
+        <div><div class="form-label">Source</div><span class="badge badge-peach">{{ exc.transaction.get_source_display }}</span></div>
+        <div><div class="form-label">Status</div><span class="badge badge-exception">{{ exc.transaction.get_status_display }}</span></div>
+        <div><div class="form-label">Debit</div><div style="color:var(--danger)">{{ exc.transaction.currency }} {{ exc.transaction.debit_amount|floatformat:2 }}</div></div>
+        <div><div class="form-label">Credit</div><div style="color:var(--success)">{{ exc.transaction.currency }} {{ exc.transaction.credit_amount|floatformat:2 }}</div></div>
+        {% if exc.transaction.narration %}
+        <div style="grid-column:span 2">
+          <div class="form-label">Narration</div>
+          <div style="font-size:0.85rem;padding:8px;background:var(--slate-50);border-radius:6px">{{ exc.transaction.narration }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Manage Exception</span></div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Exception Category</label>
+          <div class="badge badge-exception" style="display:inline-flex">{{ exc.get_category_display }}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-control">
+            {% for val, label in form.fields.status.choices %}
+              <option value="{{ val }}" {% if exc.status == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Assigned To</label>
+          <select name="assigned_to" class="form-control">
+            <option value="">— Unassigned —</option>
+            {% for user in form.fields.assigned_to.queryset %}
+              <option value="{{ user.pk }}" {% if exc.assigned_to_id == user.pk %}selected{% endif %}>
+                {{ user.get_full_name|default:user.username }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Resolution Notes</label>
+          <textarea name="resolution_notes" class="form-control" rows="4" placeholder="Enter investigation notes or resolution details…">{{ exc.resolution_notes }}</textarea>
+        </div>
+        {% if not user.is_read_only %}
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        {% endif %}
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

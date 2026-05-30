@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Bank Accounts{% endblock %}
+{% block nav_banks %}active{% endblock %}
+{% block breadcrumb %}Bank Accounts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Bank Accounts</div>
+    <div class="page-subtitle">Manage registered bank accounts for reconciliation</div>
+  </div>
+  {% if user.role == 'admin' %}
+  <a href="{% url 'reconciliation:bank_account_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    Add Account
+  </a>
+  {% endif %}
+</div>
+
+<div class="card">
+  {% if accounts %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Account Name</th>
+          <th>Account Number</th>
+          <th>Bank</th>
+          <th>Currency</th>
+          <th>Branch</th>
+          <th>Status</th>
+          {% if user.role == 'admin' %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for acc in accounts %}
+        <tr>
+          <td style="font-weight:500">{{ acc.account_name }}</td>
+          <td class="mono" style="font-size:0.8rem">{{ acc.account_number }}</td>
+          <td>{{ acc.bank_name }}</td>
+          <td><span class="badge badge-peach">{{ acc.currency }}</span></td>
+          <td style="font-size:0.8rem;color:var(--slate-500)">{{ acc.branch|default:"—" }}</td>
+          <td>
+            <span class="badge {% if acc.status == 'active' %}badge-approved{% elif acc.status == 'frozen' %}badge-rejected{% else %}badge-draft{% endif %}">
+              {{ acc.get_status_display }}
+            </span>
+          </td>
+          {% if user.role == 'admin' %}
+          <td>
+            <a href="{% url 'reconciliation:bank_account_edit' acc.pk %}" class="btn btn-ghost btn-sm">Edit</a>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">🏦</div>
+    <div class="empty-title">No bank accounts yet</div>
+    <div class="empty-sub">{% if user.role == 'admin' %}Add your first bank account to begin reconciliation.{% else %}Contact your administrator to set up bank accounts.{% endif %}</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

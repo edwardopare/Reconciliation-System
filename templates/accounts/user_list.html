@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Users{% endblock %}
+{% block nav_users %}active{% endblock %}
+{% block breadcrumb %}Users{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">User Management</div>
+    <div class="page-subtitle">Manage system users, roles, and access control</div>
+  </div>
+  <a href="{% url 'accounts:user_create' %}" class="btn btn-primary">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    Add User
+  </a>
+</div>
+
+<div class="card">
+  {% if page_obj.object_list %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in page_obj %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;background:linear-gradient(135deg,var(--peach-300),var(--peach-400));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:600;color:white;flex-shrink:0">
+                {{ u.first_name|first|upper }}{{ u.last_name|first|upper }}
+              </div>
+              <div>
+                <div style="font-size:0.85rem;font-weight:500">{{ u.get_full_name|default:"—" }}</div>
+                <div style="font-size:0.73rem;color:var(--slate-400)">{{ u.email|default:"No email" }}</div>
+              </div>
+            </div>
+          </td>
+          <td class="mono" style="font-size:0.8rem">{{ u.username }}</td>
+          <td>
+            <span class="badge
+              {% if u.role == 'admin' %}badge-rejected
+              {% elif u.role == 'manager' %}badge-approved
+              {% elif u.role == 'officer' %}badge-peach
+              {% elif u.role == 'auditor' %}badge-processing
+              {% else %}badge-draft{% endif %}">
+              {{ u.get_role_display }}
+            </span>
+          </td>
+          <td style="font-size:0.8rem;color:var(--slate-500)">{{ u.department|default:"—" }}</td>
+          <td>
+            {% if u.is_locked %}
+              <span class="badge badge-rejected">Locked</span>
+            {% elif not u.is_active %}
+              <span class="badge badge-draft">Inactive</span>
+            {% else %}
+              <span class="badge badge-approved">Active</span>
+            {% endif %}
+          </td>
+          <td style="font-size:0.75rem;color:var(--slate-400)">{{ u.date_joined|date:"d M Y" }}</td>
+          <td>
+            <div style="display:flex;gap:4px">
+              <a href="{% url 'accounts:user_edit' u.pk %}" class="btn btn-ghost btn-sm">Edit</a>
+              <form method="post" action="{% url 'accounts:user_toggle_lock' u.pk %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-ghost btn-sm" 
+                        style="color:{% if u.is_locked %}var(--success){% else %}var(--danger){% endif %}">
+                  {% if u.is_locked %}Unlock{% else %}Lock{% endif %}
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">👥</div>
+    <div class="empty-title">No users found</div>
+  </div>
+  {% endif %}
+
+  {% if page_obj.has_other_pages %}
+  <div class="pagination">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="page-link">‹</a>
+    {% endif %}
+    {% for num in page_obj.paginator.page_range %}
+      {% if num == page_obj.number %}
+        <span class="page-link active">{{ num }}</span>
+      {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
+        <a href="?page={{ num }}" class="page-link">{{ num }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="page-link">›</a>
+    {% endif %}
+    <span class="page-info">{{ page_obj.paginator.count }} users</span>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
