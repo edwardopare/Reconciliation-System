@@ -10,6 +10,7 @@ urlpatterns = [
     path('sessions/', views.session_list, name='session_list'),
     path('sessions/create/', views.session_create, name='session_create'),
     path('sessions/<int:pk>/', views.session_detail, name='session_detail'),
+    path('sessions/<int:pk>/diagnostics/', views.session_diagnostics, name='session_diagnostics'),
     path('sessions/<int:session_pk>/upload/', views.upload_file, name='upload_file'),
     path('sessions/<int:session_pk>/run/', views.run_matching, name='run_matching'),
     path('sessions/<int:pk>/approve/', views.approve_session, name='approve_session'),

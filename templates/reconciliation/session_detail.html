@@ -25,18 +25,21 @@
     </div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
-    {% if not user.is_read_only and session.status == 'draft' %}
+    {% if not user.is_read_only and session.status in 'draft,pending_review' %}
       <form method="post" action="{% url 'reconciliation:run_matching' session.pk %}" style="display:inline">
         {% csrf_token %}
         <button type="submit" class="btn btn-primary">
           <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Run Reconciliation
+          {% if session.status == 'pending_review' %}Re-run Reconciliation{% else %}Run Reconciliation{% endif %}
         </button>
       </form>
     {% endif %}
     {% if user.can_approve and session.status == 'pending_review' %}
       <a href="{% url 'reconciliation:approve_session' session.pk %}" class="btn btn-success">Review & Approve</a>
     {% endif %}
+    <a href="{% url 'reconciliation:session_diagnostics' session.pk %}" class="btn btn-outline btn-sm" title="View parsing diagnostics">
+      🔍 Diagnostics
+    </a>
   </div>
 </div>
 
@@ -71,7 +74,7 @@
       <div class="tab-nav">
         <button class="tab-btn active" data-tab="transactions">Transactions ({{ total }})</button>
         <button class="tab-btn" data-tab="exceptions">Exceptions ({{ ex_count }})</button>
-        <button class="tab-btn" data-tab="upload">Upload Files</button>
+        <button class="tab-btn" data-tab="upload">Upload Files {% if upload_logs %}({{ upload_logs.count }}){% endif %}</button>
         <button class="tab-btn" data-tab="info">Session Info</button>
       </div>
 
@@ -196,61 +199,100 @@
       <!-- Upload -->
       <div class="tab-content" data-tab-content="upload">
         <div class="card-body">
-          {% if not user.is_read_only and session.status == 'draft' %}
+
+          {% if not user.is_read_only and session.status in 'draft,pending_review' %}
+
+          <div style="background:var(--blue-50);border:1px solid var(--blue-100);border-radius:8px;padding:12px 16px;margin-bottom:20px;font-size:0.8rem;color:var(--slate-600)">
+            <strong>ℹ Note:</strong> Files are parsed immediately in memory — nothing is saved to disk.
+            Upload a <strong>Bank Statement</strong> and an <strong>Internal Ledger</strong> file, then click <strong>Run Reconciliation</strong>.
+          </div>
+
           <form method="post" action="{% url 'reconciliation:upload_file' session.pk %}" enctype="multipart/form-data">
             {% csrf_token %}
-            <div class="form-grid">
-              <div class="form-group">
-                <label class="form-label">File Category</label>
+            <div class="form-grid" style="margin-bottom:16px">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">File Category <span style="color:var(--danger)">*</span></label>
                 <select name="category" class="form-control">
                   <option value="bank_statement">Bank Statement</option>
                   <option value="internal_ledger">Internal Ledger</option>
                   <option value="payment_gateway">Payment Gateway File</option>
                 </select>
               </div>
-              <div class="form-group">
-                <label class="form-label">File</label>
-                <input type="file" name="file" class="form-control" accept=".csv,.xlsx,.xls,.txt">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label">CSV / TXT File <span style="color:var(--danger)">*</span></label>
+                <input type="file" name="file" id="file-input" class="form-control" accept=".csv,.txt" required>
               </div>
             </div>
-            <div class="upload-zone" style="margin-bottom:16px">
+
+            <div class="upload-zone" id="upload-zone" style="margin-bottom:16px" onclick="document.getElementById('file-input').click()">
               <div class="upload-icon">📤</div>
-              <div class="upload-text">Drag & drop your file here, or click Browse</div>
-              <div class="upload-hint">Supported: CSV, Excel, TXT, MT940, JSON, XML</div>
+              <div class="upload-text" id="upload-label">Click to browse or drag &amp; drop a CSV file</div>
+              <div class="upload-hint">Accepted: .csv, .txt &nbsp;·&nbsp; Max 10 MB &nbsp;·&nbsp; File is <strong>not saved</strong> after processing</div>
             </div>
-            <button type="submit" class="btn btn-primary">Upload File</button>
+
+            <button type="submit" class="btn btn-primary">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              Process File
+            </button>
           </form>
+
           {% else %}
           <div class="empty-state">
             <div class="empty-icon">🔒</div>
-            <div class="empty-title">Uploads disabled</div>
-            <div class="empty-sub">Files can only be uploaded when the session is in Draft status.</div>
+            <div class="empty-title">Uploads not available</div>
+            <div class="empty-sub">
+              {% if user.is_read_only %}You have read-only access.
+              {% else %}Session must be in Draft or Pending Review status.{% endif %}
+            </div>
           </div>
           {% endif %}
 
-          {% if files %}
+          <!-- Processing history log -->
+          {% if upload_logs %}
           <div class="mt-6">
-            <div style="font-size:0.82rem;font-weight:600;color:var(--slate-600);margin-bottom:12px">Uploaded Files</div>
+            <div style="font-size:0.82rem;font-weight:600;color:var(--slate-600);margin-bottom:10px">
+              Processing History
+              <span style="font-weight:400;color:var(--slate-400)">(files were not stored)</span>
+            </div>
             <table class="data-table">
-              <thead><tr><th>Filename</th><th>Category</th><th>Status</th><th>Rows</th><th>Uploaded</th></tr></thead>
-              <tbody>
-                {% for f in files %}
+              <thead>
                 <tr>
-                  <td style="font-size:0.8rem">{{ f.original_filename }}</td>
-                  <td><span class="badge badge-peach">{{ f.get_category_display }}</span></td>
+                  <th>Filename</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  <th>Rows Extracted</th>
+                  <th>Processed By</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for log in upload_logs %}
+                <tr>
+                  <td style="font-size:0.82rem;font-weight:500">{{ log.original_filename }}</td>
+                  <td><span class="badge badge-peach">{{ log.get_category_display }}</span></td>
                   <td>
-                    <span class="badge {% if f.status == 'processed' %}badge-approved{% elif f.status == 'failed' %}badge-rejected{% else %}badge-pending{% endif %}">
-                      {{ f.get_status_display }}
+                    <span class="badge {% if log.status == 'processed' %}badge-approved{% else %}badge-rejected{% endif %}">
+                      {{ log.get_status_display }}
                     </span>
                   </td>
-                  <td style="font-size:0.8rem">{{ f.rows_extracted }}</td>
-                  <td style="font-size:0.75rem;color:var(--slate-400)">{{ f.uploaded_at|date:"d M Y H:i" }}</td>
+                  <td style="font-weight:600;font-size:0.85rem">
+                    {% if log.status == 'processed' %}{{ log.rows_extracted }}
+                    {% else %}<span style="color:var(--danger);font-size:0.78rem">{{ log.error_message|truncatechars:60 }}</span>
+                    {% endif %}
+                  </td>
+                  <td style="font-size:0.78rem;color:var(--slate-500)">
+                    {{ log.uploaded_by.get_full_name|default:log.uploaded_by.username|default:"—" }}
+                  </td>
+                  <td style="font-size:0.75rem;color:var(--slate-400)">{{ log.uploaded_at|date:"d M Y, H:i" }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
           {% endif %}
+
         </div>
       </div>
 
@@ -312,7 +354,37 @@
 
 {% block extra_js %}
 <script>
-// Activate first tab by default (already handled in base)
-document.querySelector('.tab-btn[data-tab="transactions"]')?.click();
+// Show selected filename in upload zone
+const fileInput = document.getElementById('file-input');
+const uploadLabel = document.getElementById('upload-label');
+if (fileInput && uploadLabel) {
+  fileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      uploadLabel.textContent = this.files[0].name;
+      uploadLabel.style.color = 'var(--blue-500)';
+      uploadLabel.style.fontWeight = '500';
+    }
+  });
+  // Hide default file input — click triggered by upload zone onclick
+  fileInput.style.display = 'none';
+}
+
+// Drag and drop on upload zone
+const zone = document.getElementById('upload-zone');
+if (zone && fileInput) {
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const files = e.dataTransfer.files;
+    if (files.length) {
+      fileInput.files = files;
+      uploadLabel.textContent = files[0].name;
+      uploadLabel.style.color = 'var(--blue-500)';
+      uploadLabel.style.fontWeight = '500';
+    }
+  });
+}
 </script>
 {% endblock %}
