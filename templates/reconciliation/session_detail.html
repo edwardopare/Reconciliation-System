@@ -354,6 +354,26 @@
 
 {% block extra_js %}
 <script>
+// Ensure pagination links include the active tab parameter
+function updatePaginationLinksWithTab() {
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'transactions';
+  document.querySelectorAll('.tab-content a[href*="?"]').forEach(link => {
+    const url = new URL(link.href, window.location.origin);
+    url.searchParams.set('tab', activeTab);
+    link.href = url.pathname + '?' + url.searchParams.toString();
+  });
+}
+
+// Update pagination links when page loads
+window.addEventListener('DOMContentLoaded', updatePaginationLinksWithTab);
+
+// Update pagination links when tab is clicked
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setTimeout(updatePaginationLinksWithTab, 50);
+  });
+});
+
 // Show selected filename in upload zone
 const fileInput = document.getElementById('file-input');
 const uploadLabel = document.getElementById('upload-label');
