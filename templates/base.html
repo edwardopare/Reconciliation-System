@@ -133,15 +133,36 @@
 </div>
 
 <script>
-// Tab functionality
+// Tab functionality with URL parameter persistence
+function setActiveTab(tabName) {
+  document.querySelectorAll('.tab-container').forEach(container => {
+    const btn = container.querySelector(`[data-tab="${tabName}"]`);
+    if (btn) {
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      container.querySelector(`[data-tab-content="${tabName}"]`)?.classList.add('active');
+    }
+  });
+}
+
+// On page load, restore tab from URL parameter
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get('tab');
+  if (tabParam) {
+    setActiveTab(tabParam);
+  }
+});
+
+// Tab click handler
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const target = btn.dataset.tab;
-    const container = btn.closest('.tab-container');
-    container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    container.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    btn.classList.add('active');
-    container.querySelector(`[data-tab-content="${target}"]`)?.classList.add('active');
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', target);
+    window.history.replaceState({}, '', '?' + params.toString());
+    setActiveTab(target);
   });
 });
 

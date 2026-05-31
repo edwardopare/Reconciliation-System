@@ -58,7 +58,7 @@
       <tbody>
         {% for sess in page_obj %}
         <tr>
-          <td><span class="mono" style="color:var(--peach-600);font-weight:600">{{ sess.session_id }}</span></td>
+          <td><span class="mono" style="color:var(--blue-500);font-weight:600">{{ sess.session_id }}</span></td>
           <td>
             <a href="{% url 'reconciliation:session_detail' sess.pk %}" style="font-weight:500;color:var(--slate-800)">
               {{ sess.session_name }}

@@ -1,6 +1,5 @@
 from django.db import models
 from django.conf import settings
-import uuid
 
 
 class BankAccount(models.Model):
@@ -61,27 +60,32 @@ class ReconciliationSession(models.Model):
         return round((matched / total) * 100, 1)
 
 
-class UploadedFile(models.Model):
+# ── FileUploadLog: metadata only, no file stored ──────────────────────────────
+class FileUploadLog(models.Model):
+    """
+    Records that a file was processed — stores only metadata, never the file itself.
+    """
     CATEGORY_CHOICES = [
         ('bank_statement', 'Bank Statement'),
         ('internal_ledger', 'Internal Ledger'),
         ('payment_gateway', 'Payment Gateway File'),
     ]
-    STATUS_CHOICES = [('pending', 'Pending'), ('processing', 'Processing'), ('processed', 'Processed'), ('failed', 'Failed')]
+    STATUS_CHOICES = [
+        ('processed', 'Processed'),
+        ('failed', 'Failed'),
+    ]
 
     session = models.ForeignKey(ReconciliationSession, on_delete=models.CASCADE, related_name='uploaded_files')
-    file = models.FileField(upload_to='uploads/')
     original_filename = models.CharField(max_length=255)
     category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    checksum = models.CharField(max_length=64, blank=True)
-    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='processed')
     rows_extracted = models.IntegerField(default=0)
     error_message = models.TextField(blank=True)
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.original_filename} ({self.category})"
+        return f"{self.original_filename} ({self.get_category_display()}) — {self.rows_extracted} rows"
 
 
 class Transaction(models.Model):
@@ -99,7 +103,8 @@ class Transaction(models.Model):
     ]
 
     session = models.ForeignKey(ReconciliationSession, on_delete=models.CASCADE, related_name='transactions')
-    uploaded_file = models.ForeignKey(UploadedFile, on_delete=models.SET_NULL, null=True, blank=True)
+    # Link to the log entry that created this transaction (for diagnostics)
+    upload_log = models.ForeignKey(FileUploadLog, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
     source = models.CharField(max_length=20, choices=SOURCE_CHOICES)
     transaction_date = models.DateField()
     value_date = models.DateField(null=True, blank=True)

@@ -1,0 +1,195 @@
+{% extends 'base.html' %}
+{% block title %}Diagnostics — {{ session.session_id }}{% endblock %}
+{% block nav_sessions %}active{% endblock %}
+{% block breadcrumb %}Sessions / {{ session.session_id }} / Diagnostics{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Reconciliation Diagnostics</div>
+    <div class="page-subtitle">{{ session.session_id }} — what was parsed and how matching ran</div>
+  </div>
+  <a href="{% url 'reconciliation:session_detail' session.pk %}" class="btn btn-outline">← Back to Session</a>
+</div>
+
+<!-- Summary cards -->
+<div class="stat-grid" style="margin-bottom:20px">
+  <div class="stat-card peach">
+    <div class="stat-icon peach">🏦</div>
+    <div class="stat-label">Bank Transactions</div>
+    <div class="stat-value">{{ bank_txns.count }}</div>
+    <div class="stat-meta">Parsed from bank files</div>
+  </div>
+  <div class="stat-card peach">
+    <div class="stat-icon peach">📒</div>
+    <div class="stat-label">Ledger Transactions</div>
+    <div class="stat-value">{{ ledger_txns.count }}</div>
+    <div class="stat-meta">Parsed from ledger/payment files</div>
+  </div>
+  <div class="stat-card success">
+    <div class="stat-icon success">✓</div>
+    <div class="stat-label">Matched Pairs</div>
+    <div class="stat-value">{{ matched.count }}</div>
+    <div class="stat-meta">Successfully reconciled</div>
+  </div>
+  <div class="stat-card warning">
+    <div class="stat-icon warning">!</div>
+    <div class="stat-label">Unmatched</div>
+    <div class="stat-value">{{ unmatched.count }}</div>
+    <div class="stat-meta">Need attention</div>
+  </div>
+</div>
+
+<!-- Uploaded files -->
+<div class="card mb-4">
+  <div class="card-header"><span class="card-title">Uploaded Files</span></div>
+  {% if upload_logs %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Filename</th><th>Category</th><th>Status</th><th>Rows Extracted</th><th>Error</th><th>Processed</th></tr></thead>
+      <tbody>
+        {% for log in upload_logs %}
+        <tr>
+          <td style="font-weight:500;font-size:0.82rem">{{ log.original_filename }}</td>
+          <td><span class="badge badge-peach">{{ log.get_category_display }}</span></td>
+          <td>
+            <span class="badge {% if log.status == 'processed' %}badge-approved{% else %}badge-rejected{% endif %}">
+              {{ log.get_status_display }}
+            </span>
+          </td>
+          <td style="font-weight:600;font-size:0.85rem">{{ log.rows_extracted }}</td>
+          <td style="font-size:0.75rem;color:var(--danger)">{{ log.error_message|default:"—" }}</td>
+          <td style="font-size:0.75rem;color:var(--slate-400)">{{ log.uploaded_at|date:"d M Y H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-icon">📁</div><div class="empty-title">No files have been processed yet</div></div>
+  {% endif %}
+</div>
+
+<!-- Side by side: Bank vs Ledger transactions -->
+<div class="two-col" style="align-items:start;margin-bottom:20px">
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Bank Transactions ({{ bank_txns.count }})</span>
+    </div>
+    {% if bank_txns %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Reference</th><th>Debit</th><th>Credit</th><th>Status</th><th>Confidence</th></tr></thead>
+        <tbody>
+          {% for t in bank_txns %}
+          <tr>
+            <td class="mono" style="font-size:0.76rem">{{ t.transaction_date|date:"d/m/Y" }}</td>
+            <td style="font-size:0.78rem;font-weight:500">{{ t.reference_number|default:"—" }}</td>
+            <td style="font-size:0.78rem;color:var(--danger)">{% if t.debit_amount %}{{ t.debit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td style="font-size:0.78rem;color:var(--success)">{% if t.credit_amount %}{{ t.credit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td>
+              <span class="badge {% if t.status == 'matched' %}badge-matched{% else %}badge-unmatched{% endif %}" style="font-size:0.65rem">
+                {{ t.get_status_display }}
+              </span>
+            </td>
+            <td style="font-size:0.75rem;color:var(--slate-400)">{% if t.match_confidence %}{{ t.match_confidence }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">No bank transactions extracted</div>
+      <div class="empty-sub">Upload a Bank Statement file with valid CSV format.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Ledger / Payment Transactions ({{ ledger_txns.count }})</span>
+    </div>
+    {% if ledger_txns %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Date</th><th>Reference</th><th>Debit</th><th>Credit</th><th>Status</th><th>Confidence</th></tr></thead>
+        <tbody>
+          {% for t in ledger_txns %}
+          <tr>
+            <td class="mono" style="font-size:0.76rem">{{ t.transaction_date|date:"d/m/Y" }}</td>
+            <td style="font-size:0.78rem;font-weight:500">{{ t.reference_number|default:"—" }}</td>
+            <td style="font-size:0.78rem;color:var(--danger)">{% if t.debit_amount %}{{ t.debit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td style="font-size:0.78rem;color:var(--success)">{% if t.credit_amount %}{{ t.credit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td>
+              <span class="badge {% if t.status == 'matched' %}badge-matched{% else %}badge-unmatched{% endif %}" style="font-size:0.65rem">
+                {{ t.get_status_display }}
+              </span>
+            </td>
+            <td style="font-size:0.75rem;color:var(--slate-400)">{% if t.match_confidence %}{{ t.match_confidence }}%{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">No ledger transactions extracted</div>
+      <div class="empty-sub">Upload an Internal Ledger or Payment Gateway file.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Unmatched detail -->
+{% if unmatched %}
+<div class="card">
+  <div class="card-header">
+    <span class="card-title" style="color:var(--warning)">⚠ Unmatched Transactions ({{ unmatched.count }})</span>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead><tr><th>Source</th><th>Date</th><th>Reference</th><th>Narration</th><th>Debit</th><th>Credit</th><th>Why unmatched?</th></tr></thead>
+      <tbody>
+        {% for t in unmatched %}
+        <tr>
+          <td><span class="badge badge-peach">{{ t.get_source_display }}</span></td>
+          <td class="mono" style="font-size:0.76rem">{{ t.transaction_date|date:"d/m/Y" }}</td>
+          <td style="font-size:0.78rem">{{ t.reference_number|default:"<em style='color:var(--slate-300)'>no reference</em>" }}</td>
+          <td style="font-size:0.75rem;color:var(--slate-500);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.narration|default:"—" }}</td>
+          <td style="font-size:0.78rem;color:var(--danger)">{% if t.debit_amount %}{{ t.debit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td style="font-size:0.78rem;color:var(--success)">{% if t.credit_amount %}{{ t.credit_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+          <td style="font-size:0.72rem;color:var(--slate-400)">
+            {% if not t.reference_number %}No reference — only narration matching possible{% endif %}
+            {% if t.debit_amount == 0 and t.credit_amount == 0 %}Zero amount — skipped{% endif %}
+            {% if t.reference_number and t.credit_amount or t.debit_amount %}No counterpart with same amount found{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- CSV format reminder -->
+<div class="card mt-4">
+  <div class="card-header"><span class="card-title">💡 Expected CSV Format</span></div>
+  <div class="card-body">
+    <p style="font-size:0.82rem;color:var(--slate-500);margin-bottom:12px">
+      Your CSV must have at minimum a <strong>date</strong> column and either <strong>debit</strong>/<strong>credit</strong> or <strong>amount</strong> column.
+      A <strong>reference</strong> column is strongly recommended for accurate matching.
+    </p>
+    <pre style="background:var(--slate-50);border:1px solid var(--slate-200);border-radius:8px;padding:14px;font-size:0.78rem;font-family:var(--font-mono);overflow-x:auto">date,reference,narration,debit,credit,currency
+2024-04-01,TXN-001,Payment to supplier ABC,1500.00,,GHS
+2024-04-02,TXN-002,Receipt from customer XYZ,,3000.00,GHS
+2024-04-03,TXN-003,Utility bill payment,450.50,,GHS</pre>
+    <p style="font-size:0.78rem;color:var(--slate-400);margin-top:10px">
+      Supported date formats: <span class="mono">YYYY-MM-DD</span>, <span class="mono">DD/MM/YYYY</span>, <span class="mono">MM/DD/YYYY</span>, <span class="mono">DD-MM-YYYY</span>.
+      Delimiters: comma, tab, pipe, semicolon.
+    </p>
+  </div>
+</div>
+{% endblock %}
